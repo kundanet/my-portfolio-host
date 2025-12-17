@@ -1,6 +1,8 @@
 FROM php:8.2-apache
 
+# -----------------------------
 # System dependencies
+# -----------------------------
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -14,36 +16,56 @@ RUN apt-get update && apt-get install -y \
     npm \
  && docker-php-ext-install pdo pdo_mysql zip
 
+# -----------------------------
 # Enable Apache rewrite
+# -----------------------------
 RUN a2enmod rewrite
 
-# Set Apache document root to Laravel public
+# -----------------------------
+# Set Apache document root to /public
+# -----------------------------
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
     /etc/apache2/sites-available/*.conf \
     /etc/apache2/apache2.conf
 
+# -----------------------------
+# Set working directory
+# -----------------------------
 WORKDIR /var/www/html
 
-# Copy project
+# -----------------------------
+# Copy project files
+# -----------------------------
 COPY . .
 
+# -----------------------------
 # Install Composer
+# -----------------------------
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install PHP deps
+# -----------------------------
+# Install PHP dependencies
+# -----------------------------
 RUN composer install --no-dev --optimize-autoloader
 
-# Build frontend
+# -----------------------------
+# Build frontend (Vite)
+# -----------------------------
 RUN npm install && npm run build
 
-# Laravel permissions
+# -----------------------------
+# Fix permissions (VERY IMPORTANT)
+# -----------------------------
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# IMPORTANT: Laravel optimizations
-RUN php artisan config:clear || true
-RUN php artisan route:clear || true
-RUN php artisan view:clear || true
-
+# -----------------------------
+# Expose port
+# -----------------------------
 EXPOSE 80
+
+# -----------------------------
+# Start Apache
+# -----------------------------
 CMD ["apache2-foreground"]
