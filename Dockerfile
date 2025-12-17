@@ -1,8 +1,8 @@
 FROM php:8.2-apache
 
-# -----------------------------
+# =========================
 # System dependencies
-# -----------------------------
+# =========================
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -10,62 +10,52 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    zip \
     curl \
     nodejs \
     npm \
- && docker-php-ext-install pdo pdo_mysql zip
+    && docker-php-ext-install pdo pdo_mysql zip \
+    && a2enmod rewrite
 
-# -----------------------------
-# Enable Apache rewrite
-# -----------------------------
-RUN a2enmod rewrite
-
-# -----------------------------
-# Set Apache document root to /public
-# -----------------------------
+# =========================
+# Set Apache Document Root
+# =========================
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
     /etc/apache2/sites-available/*.conf \
     /etc/apache2/apache2.conf
 
-# -----------------------------
-# Set working directory
-# -----------------------------
+# =========================
+# Working directory
+# =========================
 WORKDIR /var/www/html
 
-# -----------------------------
+# =========================
 # Copy project files
-# -----------------------------
+# =========================
 COPY . .
 
-# -----------------------------
+# =========================
 # Install Composer
-# -----------------------------
+# =========================
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# -----------------------------
-# Install PHP dependencies
-# -----------------------------
-RUN composer install --no-dev --optimize-autoloader
+# =========================
+# Laravel setup
+# =========================
+RUN composer install --no-dev --optimize-autoloader \
+    && npm install \
+    && npm run build \
+    && php artisan key:generate --force \
+    && php artisan config:clear \
+    && php artisan route:clear \
+    && php artisan view:clear
 
-# -----------------------------
-# Build frontend (Vite)
-# -----------------------------
-RUN npm install && npm run build
-
-# -----------------------------
-# Fix permissions (VERY IMPORTANT)
-# -----------------------------
+# =========================
+# Permissions
+# =========================
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# -----------------------------
-# Expose port
-# -----------------------------
 EXPOSE 80
 
-# -----------------------------
-# Start Apache
-# -----------------------------
 CMD ["apache2-foreground"]
