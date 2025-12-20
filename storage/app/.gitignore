@@ -1,4 +1,6 @@
 *
+!database/
+!database/*.sqlite
 !private/
 !public/
 !.gitignore
