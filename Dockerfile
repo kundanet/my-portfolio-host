@@ -1,15 +1,22 @@
 FROM php:8.2-apache
 
-# System deps
+# System dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip zip curl libzip-dev libpng-dev libonig-dev libxml2-dev \
+    git \
+    unzip \
+    libzip-dev \
+    libpng-dev \
+    sqlite3 \
+    libsqlite3-dev \
+    nodejs \
+    npm \
  && docker-php-ext-install pdo pdo_sqlite zip
 
 # Enable Apache rewrite
 RUN a2enmod rewrite
 
-# Laravel public folder
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+# Set Apache document root
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
     /etc/apache2/sites-available/*.conf \
@@ -20,17 +27,16 @@ WORKDIR /var/www/html
 # Copy app
 COPY . .
 
-# Composer
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 RUN composer install --no-dev --optimize-autoloader
+RUN npm install && npm run build
 
-# ✅ CREATE SQLITE FILE (THIS FIXES EVERYTHING)
-RUN mkdir -p database \
- && touch database/database.sqlite \
- && chown -R www-data:www-data database storage bootstrap/cache
-
-# Run migrations
-RUN php artisan migrate --force || true
+# Create SQLite database file
+RUN mkdir -p /var/www/html/database \
+ && touch /var/www/html/database/database.sqlite \
+ && chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 CMD ["apache2-foreground"]
