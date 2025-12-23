@@ -16,13 +16,15 @@ WORKDIR /var/www/html
 COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
 RUN composer install --no-dev --optimize-autoloader
 
-# 🔥 THIS IS THE FIX
-RUN php artisan migrate --force
+# 🔥 CREATE SQLITE FILE AT BUILD TIME
+RUN mkdir -p database \
+ && touch database/database.sqlite \
+ && chown -R www-data:www-data database storage bootstrap/cache
 
-RUN chown -R www-data:www-data storage bootstrap/cache database
+# 🔥 RUN MIGRATIONS
+RUN php artisan migrate --force
 
 EXPOSE 80
 CMD ["apache2-foreground"]
